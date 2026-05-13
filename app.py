@@ -76,7 +76,7 @@ st.markdown("""
 @st.cache_data(ttl=3600)
 def get_xorazm_districts():
     """Xorazm viloyati tumanlari geoJSON ma'lumotlari"""
-    # Xorazm viloyati tumanlari koordinatalari (taxminiy aniq koordinatalar)
+    # Xorazm viloyati tumanlari koordinatalari
     districts = {
         "Urganch": {"center": [41.55, 60.63], "area": 450, "color": "#FF6B6B"},
         "Xiva": {"center": [41.38, 60.37], "area": 380, "color": "#4ECDC4"},
@@ -87,7 +87,7 @@ def get_xorazm_districts():
         "Xonqa": {"center": [41.47, 60.78], "area": 270, "color": "#98D8C8"},
         "Bog'ot": {"center": [41.35, 60.85], "area": 310, "color": "#F7DC6F"},
         "Tuproqqal'a": {"center": [41.75, 61.15], "area": 520, "color": "#BB8FCE"},
-        "Qo'rg'ontepa": {"center": [41.25, 61.30], "area": 440, "color": #85C1E9"},
+        "Qo'rg'ontepa": {"center": [41.25, 61.30], "area": 440, "color": "#85C1E9"},
     }
     return districts
 
@@ -97,7 +97,7 @@ def generate_ndvi_data(district, date_start, date_end):
     np.random.seed(42)
     dates = pd.date_range(start=date_start, end=date_end, freq='5D')
     
-    # Xorazm viloyati uchun realistik NDVI qiymatlari (0.1 dan 0.85 gacha)
+    # Xorazm viloyati uchun realistik NDVI qiymatlari
     base_ndvi = {
         "Urganch": 0.45, "Xiva": 0.52, "Gurlan": 0.38, "Shovot": 0.41,
         "Yangiariq": 0.48, "Yangibozor": 0.43, "Xonqa": 0.50, "Bog'ot": 0.35,
@@ -106,7 +106,6 @@ def generate_ndvi_data(district, date_start, date_end):
     
     data = []
     for date in dates:
-        # Mavsumiy o'zgarishlar (bahor - yuqori, yoz - o'rta, kuz - pasayish)
         month = date.month
         if month in [3, 4, 5]:  # Bahor
             seasonal_factor = 1.3
@@ -118,9 +117,9 @@ def generate_ndvi_data(district, date_start, date_end):
             seasonal_factor = 0.4
             
         ndvi = base_ndvi[district] * seasonal_factor + np.random.normal(0, 0.05)
-        ndvi = max(0.1, min(0.95, ndvi))  # 0.1 va 0.95 orasida cheklash
+        ndvi = max(0.1, min(0.95, ndvi))
         
-        # Sug'orish ta'siri (paxta va g'allalar uchun farq)
+        # Sug'orish ta'siri
         irrigation_factor = 1.1 if district in ["Urganch", "Xiva", "Yangiariq"] else 1.0
         
         data.append({
@@ -140,7 +139,6 @@ def create_xorazm_geojson():
     
     features = []
     for name, info in districts.items():
-        # Har bir tuman uchun polygon yaratish (taxminiy chegaralar)
         center = info["center"]
         offset = 0.15
         
@@ -171,15 +169,15 @@ def create_xorazm_geojson():
 def get_ndvi_color(ndvi):
     """NDVI qiymatiga qarab rang qaytarish"""
     if ndvi < 0.2:
-        return "#8B0000"  # Qizil - yomon
+        return "#8B0000"
     elif ndvi < 0.4:
-        return "#FF4500"  # To'q qizil - o'rta past
+        return "#FF4500"
     elif ndvi < 0.6:
-        return "#FFD700"  # Sariq - o'rta
+        return "#FFD700"
     elif ndvi < 0.75:
-        return "#7CFC00"  # Yashil - yaxshi
+        return "#7CFC00"
     else:
-        return "#006400"  # To'q yashil - a'lo
+        return "#006400"
 
 # =============================================================================
 # SIDEBAR - BOSHQARUV PANELI
@@ -304,7 +302,7 @@ m = folium.Map(
     control_scale=True
 )
 
-# Qo'shimcha xarita qatlami (satellite uchun)
+# Qo'shimcha xarita qatlami
 if map_style == "Satellite (Esri)":
     folium.TileLayer(
         tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
@@ -318,18 +316,15 @@ if map_style == "Satellite (Esri)":
 if viz_type == "Choropleth" and selected_districts:
     geojson_data = create_xorazm_geojson()
     
-    # So'nggi NDVI qiymatlarini olish
     ndvi_values = {}
     for district in selected_districts:
         df = generate_ndvi_data(district, start_date, end_date)
         ndvi_values[district] = df['ndvi'].iloc[-1]
     
-    # GeoJSON ga NDVI qiymatlarini qo'shish
     for feature in geojson_data['features']:
         name = feature['properties']['name']
         feature['properties']['ndvi'] = ndvi_values.get(name, 0)
     
-    # Choropleth
     choropleth = folium.Choropleth(
         geo_data=geojson_data,
         name='NDVI Choropleth',
@@ -346,7 +341,6 @@ if viz_type == "Choropleth" and selected_districts:
         highlight=True
     ).add_to(m)
     
-    # Tooltip qo'shish
     choropleth.geojson.add_child(
         folium.features.GeoJsonTooltip(
             fields=['name', 'ndvi', 'area_km2'],
@@ -365,20 +359,18 @@ if viz_type == "Choropleth" and selected_districts:
     )
 
 elif viz_type == "Issiqlik Xaritasi":
-    # HeatMap uchun ma'lumotlar
     heat_data = []
     for district in selected_districts:
         df = generate_ndvi_data(district, start_date, end_date)
         center = districts[district]["center"]
         latest_ndvi = df['ndvi'].iloc[-1]
-        # Ko'proq nuqtalar yaratish (simulyatsiya)
         for _ in range(20):
             lat_offset = np.random.normal(0, 0.05)
             lon_offset = np.random.normal(0, 0.05)
             heat_data.append([
                 center[0] + lat_offset,
                 center[1] + lon_offset,
-                latest_ndvi * 100  # Intensivlik
+                latest_ndvi * 100
             ])
     
     HeatMap(
@@ -418,7 +410,6 @@ MeasureControl(position='topleft', primary_length_unit='kilometers').add_to(m)
 MiniMap().add_to(m)
 Fullscreen().add_to(m)
 
-# Layer control
 folium.LayerControl().add_to(m)
 
 # Xaritani ko'rsatish
@@ -427,7 +418,6 @@ col_map, col_info = st.columns([3, 1])
 with col_map:
     map_data = st_folium(m, width=800, height=600, returned_objects=["last_active_drawing", "bounds"])
     
-    # Tanlangan hudud ma'lumotlari
     if map_data['last_active_drawing']:
         st.success(f"📍 Tanlangan hudud: {map_data['last_active_drawing']}")
 
@@ -494,7 +484,6 @@ with tab1:
             yaxis=dict(range=[0, 1])
         )
         
-        # Mavsumiy oralig'lar
         fig.add_hrect(y0=0.75, y1=1.0, line_width=0, fillcolor="green", opacity=0.1, annotation_text="A'lo")
         fig.add_hrect(y0=0.5, y1=0.75, line_width=0, fillcolor="yellow", opacity=0.1, annotation_text="Yaxshi")
         fig.add_hrect(y0=0.25, y1=0.5, line_width=0, fillcolor="orange", opacity=0.1, annotation_text="O'rta")
@@ -569,7 +558,7 @@ with tab3:
                 st.markdown(f"""
                 **{district}:** {status}
                 - O'rtacha NDVI: **{avg:.3f}**
-                - Umumiy trend: **{'O'sish 📈' if trend > 0 else 'Pasayish 📉'}** ({abs(trend):.3f})
+                - Umumiy trend: **{'O\'sish 📈' if trend > 0 else 'Pasayish 📉'}** ({abs(trend):.3f})
                 - Tavsiya: {'Sug\'orishni optimallashtirish' if avg > 0.6 else 'Sug\'orishni oshirish' if avg < 0.4 else 'Joriy holatni saqlash'}
                 """)
             
@@ -579,14 +568,12 @@ with tab4:
     st.subheader("💾 Ma'lumotlarni Yuklab Olish")
     
     if selected_districts:
-        # Barcha ma'lumotlarni birlashtirish
         all_export = pd.concat([
             generate_ndvi_data(d, start_date, end_date) for d in selected_districts
         ], ignore_index=True)
         
         st.dataframe(all_export, use_container_width=True, height=400)
         
-        # CSV yuklab olish
         csv = all_export.to_csv(index=False).encode('utf-8')
         st.download_button(
             label="📥 CSV sifatida yuklab olish",
@@ -595,7 +582,6 @@ with tab4:
             mime="text/csv"
         )
         
-        # JSON yuklab olish
         json_data = all_export.to_json(orient='records', force_ascii=False)
         st.download_button(
             label="📥 JSON sifatida yuklab olish",
